@@ -6,11 +6,28 @@ import { CampaignResults } from './components/CampaignResults';
 import { Carousel } from './components/Carousel';
 import './index.css';
 
+const airtableHeaders = { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" };
+const CM_API_KEY = "cba51a66a63440ba80682d11085d75cb586c5f7258e4667c9913a8033b1fde831ccd44b80307121d13b702103930d6a2";
+const CM_TEMPLATE_ID = "61e541ce-f916-42f8-a7e2-9b508ad69f0f";
+const CM_TEST_URLS = { hook: "https://www.dropbox.com/scl/fi/yi8111ze639m34vsb3myi/vv2.1.0.mp4?rlkey=5d2oowmfcp7v8yqx3lar8018d&st=qcqc3b6e&dl=1", body: "https://www.dropbox.com/scl/fi/j2866nqgpc2efqrlq96j2/vv2.1.1.mp4?rlkey=abicjhgh50z70247xpnnrr00d&st=xs6hsan6&dl=1", cta: "https://www.dropbox.com/scl/fi/8tv5g95063ox1dthth2vh/vv2.1.2.mp4?rlkey=v3whqd3304719xwcivb92vuo1&st=8xv3vw8b&dl=1" };
+
 function App() {
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [cmTestStatus, setCmTestStatus] = useState("idle");
+  const [cmTestResult, setCmTestResult] = useState(null);
+
+  const handleCmTest = async () => {
+    setCmTestStatus("loading"); setCmTestResult(null);
+    try {
+      const res = await fetch("https://api.creatomate.com/v2/renders", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CM_API_KEY}` }, body: JSON.stringify({ template_id: CM_TEMPLATE_ID, modifications: { "Hook.source": CM_TEST_URLS.hook, "Body.source": CM_TEST_URLS.body, "CTA.source": CM_TEST_URLS.cta } }) });
+      const data = await res.json();
+      if (!res.ok) { setCmTestResult({ error: JSON.stringify(data, null, 2) }); setCmTestStatus("error"); }
+      else { const render = Array.isArray(data) ? data[0] : data; setCmTestResult(render); setCmTestStatus("success"); }
+    } catch (e) { setCmTestResult({ error: e.message }); setCmTestStatus("error"); }
+  };
 
   const generate = async () => {
     if (!image) return;
@@ -65,6 +82,18 @@ function App() {
               Transform product photos into world-class marketing campaigns in seconds.
             </p>
           </header>
+
+              <div style={{ marginTop: 12, background: "#fff", border: "1px solid #E5E7EB", borderRadius: 11, padding: "16px 20px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div><div style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 2 }}>🧪 Creatomate Test</div><div style={{ fontSize: 11, color: "#9CA3AF" }}>Fires a real render with the 3 test clips. Takes ~60 seconds.</div></div>
+                  <button onClick={handleCmTest} disabled={cmTestStatus === "loading"} style={{ padding: "10px 20px", borderRadius: 9, border: "none", background: cmTestStatus === "loading" ? "#9CA3AF" : "#111", color: "#fff", fontWeight: 600, fontSize: 12, cursor: cmTestStatus === "loading" ? "not-allowed" : "pointer", fontFamily: font, display: "flex", alignItems: "center", gap: 8 }}>
+                    {cmTestStatus === "loading" && <div style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />}
+                    {cmTestStatus === "loading" ? "Sending..." : "Fire Test Render"}
+                  </button>
+                </div>
+                {cmTestStatus === "success" && cmTestResult && <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 9, background: "#F0FFF4", border: "1px solid #86EFAC" }}><div style={{ fontSize: 12, fontWeight: 700, color: "#16A34A", marginBottom: 8 }}>✅ Render queued!</div><a href={cmTestResult.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#2563EB", wordBreak: "break-all", display: "block", padding: "8px 10px", background: "#fff", borderRadius: 6, border: "1px solid #BFDBFE" }}>{cmTestResult.url}</a></div>}}
+                {cmTestStatus === "error" && cmTestResult && <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 9, background: "#FEF2F2", border: "1px solid #FCA5A5" }}><div style={{ fontSize: 12, fontWeight: 700, color: "#DC2626", marginBottom: 6 }}>❌ Error</div><pre style={{ fontSize: 11, color: "#7F1D1D", whiteSpace: "pre-wrap", margin: 0 }}>{cmTestResult.error}</pre></div>}}
+              </div>
 
           {result ? (
             <CampaignResults data={result} onReset={reset} />
